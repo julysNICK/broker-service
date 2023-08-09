@@ -13,6 +13,7 @@ import (
 
 const webPort = "80"
 
+type rpcAPI int
 type Config struct {
 	RabbitPost *amqp.Connection
 }

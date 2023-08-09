@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"net/rpc"
 )
 
 type ActionType string
@@ -14,6 +15,7 @@ type ActionType string
 const (
 	ActionCreateUser          ActionType = "create_user"
 	ActionCreateUserViaRabbit ActionType = "create_user_via_rabbit"
+	GetPostsViaRPC            ActionType = "get_posts_via_rpc"
 	ActionGetUser             ActionType = "get_user"
 	ActionGetUsers            ActionType = "get_users"
 
@@ -50,6 +52,11 @@ type RequestPayload struct {
 
 	PostServiceGetAll struct {
 	} `json:"post_service_get_all,omitempty"`
+
+	GetPostsViaRPC struct {
+		Limit  int `json:"limit"`
+		Offset int `json:"offset"`
+	} `json:"get_posts_via_rpc,omitempty"`
 }
 
 type UserServicePayload struct {
@@ -111,6 +118,12 @@ func (app *Config) HandleSubmission(w http.ResponseWriter, r *http.Request) {
 
 	case ActionCreatePost:
 		app.createPost(w, requestPayload.PostServiceCreate)
+
+	case GetPostsViaRPC:
+		app.getAllPostViaRPC(w, RPCPayload{
+			Limit:  requestPayload.GetPostsViaRPC.Limit,
+			Offset: requestPayload.GetPostsViaRPC.Offset,
+		})
 
 	case ActionCreatePostViaRabbit:
 		app.postCreateViaRabbit(w, requestPayload.PostServiceCreateViaRabbit)
@@ -521,4 +534,40 @@ func (app *Config) pushToQueueUser(user UserServiceViaRabbitPayload) error {
 	}
 
 	return nil
+}
+
+type RPCPayload struct {
+	Limit  int
+	Offset int
+}
+
+type RPCPost struct {
+	ID      int
+	Title   string
+	Content string
+}
+
+func (app *Config) getAllPostViaRPC(w http.ResponseWriter, payload RPCPayload) {
+	client, err := rpc.Dial("tcp", "test-rpc-service:4040")
+
+	if err != nil {
+		app.errorJSON(w, err)
+		return
+	}
+
+	var reply []RPCPost
+
+	err = client.Call("API.GetPostsRPC", payload, &reply)
+
+	if err != nil {
+		app.errorJSON(w, err)
+		return
+	}
+
+	var payloadResponse jsonResponse
+	payloadResponse.Message = "Posts Found"
+	payloadResponse.Error = false
+	payloadResponse.Data = reply
+
+	app.writeJSON(w, http.StatusOK, payloadResponse)
 }
