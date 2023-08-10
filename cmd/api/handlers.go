@@ -53,10 +53,7 @@ type RequestPayload struct {
 	PostServiceGetAll struct {
 	} `json:"post_service_get_all,omitempty"`
 
-	GetPostsViaRPC struct {
-		Limit  int `json:"limit"`
-		Offset int `json:"offset"`
-	} `json:"get_posts_via_rpc,omitempty"`
+	GetPostsRPC GetPostsRPCParams `json:"get_posts_via_rpc,omitempty"`
 }
 
 type UserServicePayload struct {
@@ -65,6 +62,11 @@ type UserServicePayload struct {
 	LastName  string `json:"last_name"`
 	Password  string `json:"password"`
 	Active    int    `json:"active"`
+}
+
+type GetPostsRPCParams struct {
+	Limit  int `json:"limit"`
+	Offset int `json:"offset"`
 }
 
 type UserServiceViaRabbitPayload struct {
@@ -120,10 +122,7 @@ func (app *Config) HandleSubmission(w http.ResponseWriter, r *http.Request) {
 		app.createPost(w, requestPayload.PostServiceCreate)
 
 	case GetPostsViaRPC:
-		app.getAllPostViaRPC(w, RPCPayload{
-			Limit:  requestPayload.GetPostsViaRPC.Limit,
-			Offset: requestPayload.GetPostsViaRPC.Offset,
-		})
+		app.getAllPostViaRPC(w, requestPayload.GetPostsRPC)
 
 	case ActionCreatePostViaRabbit:
 		app.postCreateViaRabbit(w, requestPayload.PostServiceCreateViaRabbit)
@@ -536,28 +535,28 @@ func (app *Config) pushToQueueUser(user UserServiceViaRabbitPayload) error {
 	return nil
 }
 
-type RPCPayload struct {
-	Limit  int
-	Offset int
-}
-
 type RPCPost struct {
 	ID      int
 	Title   string
 	Content string
 }
 
-func (app *Config) getAllPostViaRPC(w http.ResponseWriter, payload RPCPayload) {
-	client, err := rpc.Dial("tcp", "test-rpc-service:4040")
+func (app *Config) getAllPostViaRPC(w http.ResponseWriter, payload GetPostsRPCParams) {
+	fmt.Println("Getting Posts via RPC")
+	client, err := rpc.Dial("tcp", "post-service:5001")
 
 	if err != nil {
 		app.errorJSON(w, err)
 		return
 	}
 
-	var reply []RPCPost
+	var reply *[]RPCPost
 
-	err = client.Call("API.GetPostsRPC", payload, &reply)
+	fmt.Println("Getting Posts via RPC 5001")
+
+	fmt.Println(payload)
+
+	err = client.Call("API.GetPostsRPC", payload, reply)
 
 	if err != nil {
 		app.errorJSON(w, err)
