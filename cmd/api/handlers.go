@@ -550,13 +550,13 @@ func (app *Config) getAllPostViaRPC(w http.ResponseWriter, payload GetPostsRPCPa
 		return
 	}
 
-	var reply *[]RPCPost
+	var reply []RPCPost
 
 	fmt.Println("Getting Posts via RPC 5001")
 
 	fmt.Println(payload)
 
-	err = client.Call("API.GetPostsRPC", payload, reply)
+	err = client.Call("API.GetPostsRPC", payload, &reply)
 
 	if err != nil {
 		app.errorJSON(w, err)
