@@ -2,12 +2,18 @@ package main
 
 import (
 	"broker/cmd/event"
+	"broker/post"
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
 	"net/rpc"
+	"time"
+
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 )
 
 type ActionType string
@@ -23,6 +29,7 @@ const (
 	ActionCreatePostViaRabbit ActionType = "create_post_via_rabbit"
 	ActionGetPost             ActionType = "get_post"
 	ActionGetPosts            ActionType = "get_posts"
+	ActionGetPostViaGrpc      ActionType = "get_post_via_grpc"
 )
 
 type RequestPayload struct {
@@ -54,6 +61,10 @@ type RequestPayload struct {
 	} `json:"post_service_get_all,omitempty"`
 
 	GetPostsRPC GetPostsRPCParams `json:"get_posts_via_rpc,omitempty"`
+
+	GetPostViaGrpc struct {
+		ID int `json:"id"`
+	} `json:"get_post_via_params_grpc,omitempty"`
 }
 
 type UserServicePayload struct {
@@ -132,6 +143,9 @@ func (app *Config) HandleSubmission(w http.ResponseWriter, r *http.Request) {
 
 	case ActionGetPost:
 		app.getPostByID(w, requestPayload.PostServiceGet.ID)
+
+	case ActionGetPostViaGrpc:
+		app.PostIdViaGrpc(w, r, fmt.Sprintf("%d", requestPayload.GetPostViaGrpc.ID))
 
 	case ActionGetPosts:
 		app.getPosts(w)
@@ -567,6 +581,47 @@ func (app *Config) getAllPostViaRPC(w http.ResponseWriter, payload GetPostsRPCPa
 	payloadResponse.Message = "Posts Found"
 	payloadResponse.Error = false
 	payloadResponse.Data = reply
+
+	app.writeJSON(w, http.StatusOK, payloadResponse)
+}
+
+func (app *Config) PostIdViaGrpc(w http.ResponseWriter, r *http.Request, id string) {
+
+	conn, err := grpc.Dial("post-service:5002", grpc.WithTransportCredentials(insecure.NewCredentials()), grpc.WithBlock())
+
+	if err != nil {
+		app.errorJSON(w, err)
+		return
+	}
+
+	defer conn.Close()
+
+	p := post.NewPostServiceClient(conn)
+
+	req := &post.PostRequest{
+		Id: id,
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+
+	defer cancel()
+
+	if err != nil {
+		app.errorJSON(w, err)
+		return
+	}
+
+	res, err := p.GetPostRpc(ctx, req)
+
+	if err != nil {
+		app.errorJSON(w, err)
+		return
+	}
+
+	var payloadResponse jsonResponse
+	payloadResponse.Message = "Post Found"
+	payloadResponse.Error = false
+	payloadResponse.Data = res
 
 	app.writeJSON(w, http.StatusOK, payloadResponse)
 }
