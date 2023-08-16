@@ -25,11 +25,12 @@ const (
 	ActionGetUser             ActionType = "get_user"
 	ActionGetUsers            ActionType = "get_users"
 
-	ActionCreatePost          ActionType = "create_post"
-	ActionCreatePostViaRabbit ActionType = "create_post_via_rabbit"
-	ActionGetPost             ActionType = "get_post"
-	ActionGetPosts            ActionType = "get_posts"
-	ActionGetPostViaGrpc      ActionType = "get_post_via_grpc"
+	ActionCreatePost              ActionType = "create_post"
+	ActionCreatePostViaRabbit     ActionType = "create_post_via_rabbit"
+	ACTION_UPDATE_POST_VIA_RABBIT ActionType = "update_post_via_rabbit"
+	ActionGetPost                 ActionType = "get_post"
+	ActionGetPosts                ActionType = "get_posts"
+	ActionGetPostViaGrpc          ActionType = "get_post_via_grpc"
 )
 
 type RequestPayload struct {
@@ -65,6 +66,8 @@ type RequestPayload struct {
 	GetPostViaGrpc struct {
 		ID int `json:"id"`
 	} `json:"get_post_via_params_grpc,omitempty"`
+
+	UpdatePostViaRabbit PostUpdateViaRabbitPayload `json:"update_post_via_rabbit,omitempty"`
 }
 
 type UserServicePayload struct {
@@ -98,6 +101,19 @@ type PostServiceViaRabbitPayload struct {
 	Id_user int    `json:"id_user"`
 	Content string `json:"content"`
 	Type    string `json:"type"`
+}
+
+
+type PostUpdateServiceViaRabbitPayload struct {
+	Id_user int    `json:"id_user"`
+	Content string `json:"content"`
+	Type    string `json:"type"`
+}
+
+type PostUpdateViaRabbitPayload struct {
+	Id_user int    `json:"id_user"`
+	Content string `json:"content"`
+	Type 	string `json:"type"`
 }
 
 func (app *Config) Broker(w http.ResponseWriter, r *http.Request) {
@@ -149,6 +165,9 @@ func (app *Config) HandleSubmission(w http.ResponseWriter, r *http.Request) {
 
 	case ActionGetPosts:
 		app.getPosts(w)
+
+	case ACTION_UPDATE_POST_VIA_RABBIT:
+		app.postUpdateViaRabbit(w, requestPayload.UpdatePostViaRabbit)
 
 	default:
 		app.errorJSON(w, errors.New("invalid action"))
@@ -484,6 +503,61 @@ func (app *Config) pushToQueuePost(content string, id_user int, typeAction strin
 	}
 
 	return nil
+}
+
+
+func (app *Config) pushToQueuePostUpdate( payload PostUpdateViaRabbitPayload) error {
+	fmt.Println("Pushing to queue")
+	emitter, err := event.NewEventEmitterPost(app.RabbitPost)
+
+	if err != nil {
+		fmt.Println("line 409 " + err.Error())
+		return err
+	}
+
+	fmt.Println("Pushing to channel")
+
+	payloadUpdate := PostUpdateServiceViaRabbitPayload{
+		Id_user: payload.Id_user,
+		Content: payload.Content,
+		Type:    payload.Content,
+	}
+
+	j, _ := json.MarshalIndent(payloadUpdate, "", "\t")
+	fmt.Println(string(j))
+
+	err = emitter.PushPost(string(j), "post.update")
+
+	fmt.Println("Pushed to channel")
+
+	if err != nil {
+		fmt.Println("line 428 " + err.Error())
+		return err
+	}
+
+	return nil
+}
+
+
+func (app *Config) postUpdateViaRabbit(w http.ResponseWriter, payload PostUpdateViaRabbitPayload) {
+	
+	fmt.Println("Updating Post via RabbitMQ")
+
+	err := app.pushToQueuePostUpdate(payload)
+
+	if err != nil {
+		fmt.Println("line 549 " + err.Error())
+		app.errorJSON(w, err)
+		return
+	}
+
+	fmt.Println("Post Updated via RabbitMQ")
+
+	var payloadResponse jsonResponse
+	payloadResponse.Message = "Post Updated"
+	payloadResponse.Error = false
+
+	app.writeJSON(w, http.StatusCreated, payloadResponse)
 }
 
 // -----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
