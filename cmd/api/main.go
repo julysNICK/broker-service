@@ -11,7 +11,7 @@ import (
 	amqp "github.com/rabbitmq/amqp091-go"
 )
 
-const webPort = "8080"
+const webPort = "80"
 
 type rpcAPI int
 type Config struct {
