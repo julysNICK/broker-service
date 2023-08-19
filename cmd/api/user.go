@@ -2,11 +2,19 @@ package main
 
 import (
 	"broker/cmd/event"
+	userGrpc "broker/user"
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
+	"strconv"
+	"time"
+
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 func (app *Config) createUser(w http.ResponseWriter, payload UserServicePayload) {
@@ -207,6 +215,142 @@ func (app *Config) getUsers(w http.ResponseWriter) {
 	payloadResponse.Message = "Users Found"
 	payloadResponse.Error = false
 	payloadResponse.Data = jsonFromResponse.Data
+
+	app.writeJSON(w, http.StatusOK, payloadResponse)
+}
+
+func (app *Config) getAllUsersViaGRPC(w http.ResponseWriter) {
+
+	conn, err := grpc.Dial("user-service:5003", grpc.WithTransportCredentials(insecure.NewCredentials()), grpc.WithBlock())
+
+	if err != nil {
+		app.errorJSON(w, err)
+		return
+	}
+
+	defer conn.Close()
+
+	u := userGrpc.NewUserServiceClient(conn)
+
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+
+	defer cancel()
+
+	res, err := u.GetAllUsers(ctx, &emptypb.Empty{})
+
+	if err != nil {
+		app.errorJSON(w, err)
+		return
+	}
+
+	var payloadResponse jsonResponse
+	payloadResponse.Message = "Users Found"
+	payloadResponse.Error = false
+	payloadResponse.Data = res
+
+	app.writeJSON(w, http.StatusOK, payloadResponse)
+}
+
+func (app *Config) getUserViaGRPC(w http.ResponseWriter, r *http.Request, id string) {
+	conn, err := grpc.Dial("user-service:5003", grpc.WithTransportCredentials(insecure.NewCredentials()), grpc.WithBlock())
+
+	if err != nil {
+		app.errorJSON(w, err)
+		return
+	}
+	defer conn.Close()
+	u := userGrpc.NewUserServiceClient(conn)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+	convID, err := strconv.Atoi(id)
+	if err != nil {
+		app.errorJSON(w, err)
+		return
+	}
+	res, err := u.GetOneUser(ctx, &userGrpc.UserRequestGetOne{
+		Id: int32(convID),
+	})
+	if err != nil {
+		app.errorJSON(w, err)
+		return
+	}
+	var payloadResponse jsonResponse
+	payloadResponse.Message = "User Found"
+	payloadResponse.Error = false
+	payloadResponse.Data = res
+	app.writeJSON(w, http.StatusOK, payloadResponse)
+}
+
+func (app *Config) userDeleteViaGRPC(w http.ResponseWriter, email string) {
+	conn, err := grpc.Dial("user-service:5003", grpc.WithTransportCredentials(insecure.NewCredentials()), grpc.WithBlock())
+
+	if err != nil {
+		app.errorJSON(w, err)
+		return
+	}
+
+	defer conn.Close()
+
+	u := userGrpc.NewUserServiceClient(conn)
+
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+
+	defer cancel()
+
+	res, err := u.DeleteUser(ctx, &userGrpc.UserRequestDelete{
+		Email: email,
+	})
+
+	if err != nil {
+		app.errorJSON(w, err)
+		return
+	}
+
+	var payloadResponse jsonResponse
+	payloadResponse.Message = "User Deleted"
+	payloadResponse.Error = false
+	payloadResponse.Data = res
+
+	app.writeJSON(w, http.StatusOK, payloadResponse)
+}
+
+type UserUpdateViaGRPCPayload struct {
+	ID    int    `json:"id"`
+	Email string `json:"email"`
+}
+
+func (app *Config) userUpdateViaGRPC(w http.ResponseWriter, payload UserUpdateViaGRPCPayload) {
+	conn, err := grpc.Dial("user-service:5003", grpc.WithTransportCredentials(insecure.NewCredentials()), grpc.WithBlock())
+
+	if err != nil {
+		app.errorJSON(w, err)
+		return
+	}
+
+	defer conn.Close()
+
+	u := userGrpc.NewUserServiceClient(conn)
+
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+
+	defer cancel()
+
+	res, err := u.UpdateUser(ctx, &userGrpc.UserRequestUpdate{
+		Email: payload.Email,
+	})
+
+	if err != nil {
+		app.errorJSON(w, err)
+		return
+	}
+
+	var payloadResponse jsonResponse
+
+	payloadResponse.Message = "User Updated"
+
+	payloadResponse.Error = false
+
+	payloadResponse.Data = res
 
 	app.writeJSON(w, http.StatusOK, payloadResponse)
 }

@@ -5,7 +5,6 @@ type GetPostsRPCParams struct {
 	Offset int `json:"offset"`
 }
 
-
 type PostServicePayload struct {
 	Id_user int    `json:"id_user"`
 	Content string `json:"content"`
@@ -17,7 +16,6 @@ type PostServiceViaRabbitPayload struct {
 	Type    string `json:"type"`
 }
 
-
 type PostUpdateServiceViaRabbitPayload struct {
 	Id_user int    `json:"id_user"`
 	Content string `json:"content"`
@@ -27,5 +25,10 @@ type PostUpdateServiceViaRabbitPayload struct {
 type PostUpdateViaRabbitPayload struct {
 	Id_user int    `json:"id_user"`
 	Content string `json:"content"`
-	Type 	string `json:"type"`
+	Type    string `json:"type"`
+}
+
+type DeletePostViaRabbitPayload struct {
+	Id   int    `json:"id"`
+	Type string `json:"type"`
 }

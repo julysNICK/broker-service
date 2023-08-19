@@ -15,6 +15,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 )
+
 func (app *Config) getPosts(w http.ResponseWriter) {
 	request, err := http.NewRequest("GET", "http://post-service/v1/posts", nil)
 
@@ -153,23 +154,19 @@ func (app *Config) createPost(w http.ResponseWriter, payload PostServicePayload)
 
 }
 
-
-
-
 func (app *Config) postCreateViaRabbit(w http.ResponseWriter, payload PostServiceViaRabbitPayload) {
 	fmt.Println("Creating Post via RabbitMQ")
 
-		payloadConvert := PostServiceViaRabbitPayload{
+	payloadConvert := PostServiceViaRabbitPayload{
 		Id_user: payload.Id_user,
 		Content: payload.Content,
 		Type:    payload.Type,
 	}
 
-
 	err := app.pushToQueuePostRabbit(payloadConvert, "post.created")
 
 	if err != nil {
-		fmt.Println("line 390 " + err.Error())
+		fmt.Println("line 169 " + err.Error())
 		app.errorJSON(w, err)
 		return
 	}
@@ -216,13 +213,13 @@ func (app *Config) postCreateViaRabbit(w http.ResponseWriter, payload PostServic
 // }
 
 func (app *Config) postUpdateViaRabbit(w http.ResponseWriter, payload PostUpdateViaRabbitPayload) {
-	
+
 	fmt.Println("Updating Post via RabbitMQ")
 
 	err := app.pushToQueuePostRabbit(payload, "post.updated")
 
 	if err != nil {
-		fmt.Println("line 549 " + err.Error())
+		fmt.Println("line 222 " + err.Error())
 		app.errorJSON(w, err)
 		return
 	}
@@ -235,6 +232,37 @@ func (app *Config) postUpdateViaRabbit(w http.ResponseWriter, payload PostUpdate
 
 	app.writeJSON(w, http.StatusCreated, payloadResponse)
 }
+
+func (app *Config) postDeleteViaRabbit(w http.ResponseWriter, payload DeletePostViaRabbitPayload) {
+
+	fmt.Println("Deleting Post via RabbitMQ")
+	fmt.Println(payload.Id)
+
+	convertPayload := struct {
+		Id_Post int    `json:"id_post"`
+		Type    string `json:"type"`
+	}{
+		Id_Post: payload.Id,
+		Type:    "post.deleted",
+	}
+
+	err := app.pushToQueuePostRabbit(convertPayload, "post.deleted")
+
+	if err != nil {
+		fmt.Println("line 243 " + err.Error())
+		app.errorJSON(w, err)
+		return
+	}
+
+	fmt.Println("Post deleted via RabbitMQ")
+
+	var payloadResponse jsonResponse
+	payloadResponse.Message = "Post Deleted"
+	payloadResponse.Error = false
+
+	app.writeJSON(w, http.StatusCreated, payloadResponse)
+}
+
 // func (app *Config) pushToQueuePostUpdate( payload PostUpdateViaRabbitPayload) error {
 // 	fmt.Println("Pushing to queue")
 // 	emitter, err := event.NewEventEmitterPost(app.RabbitPost)
@@ -245,8 +273,6 @@ func (app *Config) postUpdateViaRabbit(w http.ResponseWriter, payload PostUpdate
 // 	}
 
 // 	fmt.Println("Pushing to channel")
-
-	
 
 // 	j, _ := json.MarshalIndent(payload, "", "\t")
 // 	fmt.Println(string(j))
@@ -262,13 +288,12 @@ func (app *Config) postUpdateViaRabbit(w http.ResponseWriter, payload PostUpdate
 // 	return nil
 // }
 
-
 func (app *Config) pushToQueuePostRabbit(payload interface{}, eventType string) error {
 
 	emitter, err := event.NewEventEmitterPost(app.RabbitPost)
 
 	if err != nil {
-		fmt.Println("line 264 " + err.Error())
+		fmt.Println("line 287 " + err.Error())
 		return err
 	}
 

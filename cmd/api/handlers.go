@@ -6,7 +6,6 @@ import (
 	"net/http"
 )
 
-
 type RequestPayload struct {
 	Action            ActionType         `json:"action"`
 	UserServiceCreate UserServicePayload `json:"user_service,omitempty"`
@@ -23,6 +22,22 @@ type RequestPayload struct {
 	UserServiceGetOne struct {
 		ID int `json:"id"`
 	} `json:"user_service_get_one,omitempty"`
+
+	UserServiceGetAllViaGRPC struct {
+	} `json:"user_service_get_all_via_rpc,omitempty"`
+
+	UserServiceGetOneUserViaGRPC struct {
+		ID int `json:"id"`
+	} `json:"user_service_get_one_via_rpc,omitempty"`
+
+	UserServiceDeleteViaGRPC struct {
+		Email string `json:"email"`
+	} `json:"user_service_delete_via_rpc,omitempty"`
+
+	UserServiceUpdateViaGRPC struct {
+		ID    int    `json:"id"`
+		Email string `json:"email"`
+	} `json:"user_service_update_via_rpc,omitempty"`
 
 	PostServiceCreate PostServicePayload `json:"post_service,omitempty"`
 
@@ -42,10 +57,9 @@ type RequestPayload struct {
 	} `json:"get_post_via_params_grpc,omitempty"`
 
 	UpdatePostViaRabbit PostUpdateViaRabbitPayload `json:"update_post_via_rabbit,omitempty"`
+
+	DeletePostViaRabbit DeletePostViaRabbitPayload `json:"delete_post_via_rabbit,omitempty"`
 }
-
-
-
 
 func (app *Config) Broker(w http.ResponseWriter, r *http.Request) {
 	payload := jsonResponse{
@@ -99,6 +113,21 @@ func (app *Config) HandleSubmission(w http.ResponseWriter, r *http.Request) {
 
 	case ACTION_UPDATE_POST_VIA_RABBIT:
 		app.postUpdateViaRabbit(w, requestPayload.UpdatePostViaRabbit)
+
+	case ActionDeletePostViaRabbit:
+		app.postDeleteViaRabbit(w, requestPayload.DeletePostViaRabbit)
+
+	case ActionGetUsersViaGRPC:
+		app.getAllUsersViaGRPC(w)
+
+	case ActionGetUserViaGRPC:
+		app.getUserViaGRPC(w, r, fmt.Sprintf("%d", requestPayload.UserServiceGetOneUserViaGRPC.ID))
+
+	case ActionDeleteUserViaGRPC:
+		app.userDeleteViaGRPC(w, requestPayload.UserServiceDeleteViaGRPC.Email)
+
+	case ActionUpdateViaGRPC:
+		app.userUpdateViaGRPC(w, requestPayload.UserServiceUpdateViaGRPC)
 
 	default:
 		app.errorJSON(w, errors.New("invalid action"))
